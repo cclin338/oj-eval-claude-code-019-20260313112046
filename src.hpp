@@ -20,36 +20,38 @@ void Calculate(std::vector<Matrix *> keys, std::vector<Matrix *> values,
      * automatically.
      */
 
-    // Concatenate all keys K[0]...K[i] into K_all [i+1, d]
+    // Move query to SRAM first
+    gpu_sim.MoveMatrixToSharedMem(current_query);
+
+    // Concatenate all keys K[0]...K[i] into K_all [i+1, d] in SRAM
     Matrix* K_all = nullptr;
     for (size_t j = 0; j <= i; ++j) {
+      gpu_sim.MoveMatrixToSharedMem(keys[j]);
       if (K_all == nullptr) {
         K_all = matrix_memory_allocator.Allocate("K_all_" + std::to_string(i));
-        gpu_sim.Copy(keys[j], K_all, kInGpuHbm);
+        gpu_sim.Copy(keys[j], K_all, kInSharedMemory);
       } else {
         Matrix* new_K_all = matrix_memory_allocator.Allocate("K_all_temp_" + std::to_string(i) + "_" + std::to_string(j));
-        gpu_sim.Concat(K_all, keys[j], new_K_all, 0, kInGpuHbm);
+        gpu_sim.Concat(K_all, keys[j], new_K_all, 0, kInSharedMemory);
         K_all = new_K_all;
       }
+      gpu_sim.MoveMatrixToGpuHbm(keys[j]);
     }
 
-    // Concatenate all values V[0]...V[i] into V_all [i+1, d]
+    // Concatenate all values V[0]...V[i] into V_all [i+1, d] in SRAM
     Matrix* V_all = nullptr;
     for (size_t j = 0; j <= i; ++j) {
+      gpu_sim.MoveMatrixToSharedMem(values[j]);
       if (V_all == nullptr) {
         V_all = matrix_memory_allocator.Allocate("V_all_" + std::to_string(i));
-        gpu_sim.Copy(values[j], V_all, kInGpuHbm);
+        gpu_sim.Copy(values[j], V_all, kInSharedMemory);
       } else {
         Matrix* new_V_all = matrix_memory_allocator.Allocate("V_all_temp_" + std::to_string(i) + "_" + std::to_string(j));
-        gpu_sim.Concat(V_all, values[j], new_V_all, 0, kInGpuHbm);
+        gpu_sim.Concat(V_all, values[j], new_V_all, 0, kInSharedMemory);
         V_all = new_V_all;
       }
+      gpu_sim.MoveMatrixToGpuHbm(values[j]);
     }
-
-    // Move Q, K_all, V_all to SRAM for faster computation
-    gpu_sim.MoveMatrixToSharedMem(current_query);
-    gpu_sim.MoveMatrixToSharedMem(K_all);
-    gpu_sim.MoveMatrixToSharedMem(V_all);
 
     // Transpose K_all to get K_all^T [d, i+1]
     gpu_sim.Transpose(K_all, kInSharedMemory);
