@@ -95,7 +95,7 @@ void Calculate(std::vector<Matrix *> keys, std::vector<Matrix *> values,
     gpu_sim.MoveMatrixToGpuHbm(result);
 
     gpu_sim.Run(false, &matrix_memory_allocator);
-    rater.CommitAnswer(result);
+    rater.CommitAnswer(*result);
     /*********************  End of your code *********************/
   
     /*
